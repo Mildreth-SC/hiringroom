@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal Empleador | Hiring Room</title>
+  <link rel="icon" type="image/png" href="assets/cropped-tuti-icono.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-glow" aria-hidden="true"></div>
+
+  <main class="container">
+    <section id="gate" class="gate">
+      <h2>Acceso del empleador</h2>
+      <p>Este acceso es solo demostrativo para Firebase Hosting estatico.</p>
+      <label class="field">
+        <span>Clave</span>
+        <input type="password" id="accessCode" placeholder="Ingresa clave">
+      </label>
+      <button class="primary-btn" id="unlockBtn" type="button">Ingresar</button>
+      <p id="gateNotice" class="notice notice--error hidden">Clave incorrecta.</p>
+      <a href="index.html" class="back-link">Volver al hiring room</a>
+    </section>
+
+    <section id="employerPanel" class="hidden">
+      <header class="jobs__header" style="margin-top: 24px;">
+        <h1 style="margin:0; font-family: Sora, sans-serif;">Ingrese oferta laboral</h1>
+        <div style="display:flex; gap:10px;">
+          <a href="index.html" class="hero__cta" style="margin:0;">Ver portal candidato</a>
+          <button id="logoutBtn" type="button" class="secondary-btn" style="margin:0; width:auto;">Cerrar sesion</button>
+        </div>
+      </header>
+
+      <div class="employer-layout">
+        <section class="panel">
+          <h2>Formulario de vacante</h2>
+          <p>Completa los campos para publicar una nueva oferta.</p>
+
+          <form id="jobForm" class="form-grid">
+            <label class="field">
+              <span>Puesto (obligatorio)</span>
+              <input type="text" name="title" required maxlength="80">
+            </label>
+
+            <div class="form-row">
+              <label class="field">
+                <span>Region</span>
+                <select name="region" required>
+                  <option value="">Selecciona</option>
+                  <option>Guayas</option>
+                  <option>Pichincha</option>
+                  <option>Azuay</option>
+                  <option>Manabi</option>
+                  <option>Loja</option>
+                  <option>El Oro</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Area</span>
+                <select name="area" required>
+                  <option value="">Selecciona</option>
+                  <option>Ventas</option>
+                  <option>Administracion</option>
+                  <option>Logistica</option>
+                  <option>Finanzas</option>
+                  <option>Tecnologia</option>
+                  <option>Recursos Humanos</option>
+                </select>
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Educacion (obligatorio)</span>
+              <input type="text" name="education" required maxlength="80">
+            </label>
+
+            <label class="field">
+              <span>Conocimientos/Habilidades</span>
+              <textarea name="skills" maxlength="400" placeholder="Escribe una habilidad por linea.&#10;Ejemplo:&#10;Excel avanzado&#10;Atencion al cliente&#10;Trabajo en equipo"></textarea>
+            </label>
+
+            <label class="field">
+              <span>Descripcion (obligatorio)</span>
+              <textarea name="description" required maxlength="480"></textarea>
+            </label>
+
+            <div class="form-row">
+              <label class="field">
+                <span>Fecha limite de postulacion</span>
+                <input type="date" name="deadline" required>
+              </label>
+
+              <label class="field">
+                <span>Imagen de la postulacion</span>
+                <input type="file" id="imageInput" accept="image/*">
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Enlace de postulacion (Google Forms)</span>
+              <input type="url" name="applyUrl" placeholder="https://forms.gle/..." required>
+            </label>
+
+            <div class="form-actions">
+              <button id="submitJobBtn" class="primary-btn" type="submit">Enviar oferta</button>
+              <button id="cancelEditBtn" class="secondary-btn hidden" type="button">Cancelar edicion</button>
+            </div>
+          </form>
+
+          <p id="formNotice" class="notice hidden"></p>
+        </section>
+
+        <aside class="panel">
+          <h3>Vista previa de imagen</h3>
+          <img id="previewImage" class="preview" alt="Vista previa de la vacante">
+
+          <h3 style="margin-top:20px;">Ofertas creadas</h3>
+          <div class="employer-filters">
+            <label class="field">
+              <span>Filtrar por region</span>
+              <select id="employerRegionFilter">
+                <option value="all">Todas</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Filtrar por area</span>
+              <select id="employerAreaFilter">
+                <option value="all">Todas</option>
+              </select>
+            </label>
+          </div>
+          <div id="employerJobList" class="job-list"></div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="employer.js"></script>
+</body>
+</html>
