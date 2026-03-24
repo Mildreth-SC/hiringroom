@@ -1,15 +1,43 @@
 const STORAGE_KEY = "hiring_room_jobs_v1";
 const DEMO_ACCESS_CODE = "empleador2026";
 const API_URL = (window.HIRING_API_URL || "").trim();
+const ECUADOR_PROVINCES = [
+  "Azuay",
+  "Bolivar",
+  "Canar",
+  "Carchi",
+  "Chimborazo",
+  "Cotopaxi",
+  "El Oro",
+  "Esmeraldas",
+  "Galapagos",
+  "Guayas",
+  "Imbabura",
+  "Loja",
+  "Los Rios",
+  "Manabi",
+  "Morona Santiago",
+  "Napo",
+  "Orellana",
+  "Pastaza",
+  "Pichincha",
+  "Santa Elena",
+  "Santo Domingo de los Tsachilas",
+  "Sucumbios",
+  "Tungurahua",
+  "Zamora Chinchipe"
+];
 
 const gate = document.getElementById("gate");
 const panel = document.getElementById("employerPanel");
 const unlockBtn = document.getElementById("unlockBtn");
 const logoutBtn = document.getElementById("logoutBtn");
+const accessUser = document.getElementById("accessUser");
 const accessCode = document.getElementById("accessCode");
 const gateNotice = document.getElementById("gateNotice");
 
 const form = document.getElementById("jobForm");
+const provinceInput = document.getElementById("provinceInput");
 const imageInput = document.getElementById("imageInput");
 const previewImage = document.getElementById("previewImage");
 const formNotice = document.getElementById("formNotice");
@@ -17,6 +45,7 @@ const employerJobList = document.getElementById("employerJobList");
 const submitJobBtn = document.getElementById("submitJobBtn");
 const cancelEditBtn = document.getElementById("cancelEditBtn");
 const employerRegionFilter = document.getElementById("employerRegionFilter");
+const employerProvinceFilter = document.getElementById("employerProvinceFilter");
 const employerAreaFilter = document.getElementById("employerAreaFilter");
 
 let selectedImageData = "";
@@ -25,7 +54,13 @@ let editingJobId = null;
 init();
 
 function init() {
+  populateProvinceInputOptions();
   unlockBtn.addEventListener("click", handleUnlock);
+  accessUser.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      handleUnlock();
+    }
+  });
   accessCode.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       handleUnlock();
@@ -37,6 +72,7 @@ function init() {
   cancelEditBtn.addEventListener("click", resetEditMode);
   logoutBtn.addEventListener("click", handleLogout);
   employerRegionFilter.addEventListener("change", renderEmployerList);
+  employerProvinceFilter.addEventListener("change", renderEmployerList);
   employerAreaFilter.addEventListener("change", renderEmployerList);
 
   if (sessionStorage.getItem("hiring_room_employer_auth") === "ok") {
@@ -45,11 +81,12 @@ function init() {
 }
 
 async function handleUnlock() {
+  const enteredUser = normalizeAccessUser_(accessUser.value);
   const enteredCode = normalizeAccessCode_(accessCode.value);
   const expectedCode = normalizeAccessCode_(DEMO_ACCESS_CODE);
 
   if (API_URL) {
-    const remoteCheck = await verifyRemoteAccessCode(enteredCode);
+    const remoteCheck = await verifyRemoteAccessCode(enteredUser, enteredCode);
     if (remoteCheck.authorized) {
       gateNotice.classList.add("hidden");
       sessionStorage.setItem("hiring_room_employer_auth", "ok");
@@ -58,7 +95,7 @@ async function handleUnlock() {
     }
 
     gateNotice.textContent = remoteCheck.reachable
-      ? "Clave incorrecta. Revisa la hoja config en Excel."
+      ? "Usuario o clave incorrectos. Revisa la hoja config en Excel."
       : "No se pudo validar con backend. Revisa Apps Script/API.";
     gateNotice.classList.remove("hidden");
     return;
@@ -74,11 +111,15 @@ async function handleUnlock() {
   openPanel();
 }
 
+function normalizeAccessUser_(value) {
+  return String(value || "").normalize("NFKC").trim().toLowerCase();
+}
+
 function normalizeAccessCode_(value) {
   return String(value || "").normalize("NFKC").trim().toLowerCase();
 }
 
-async function verifyRemoteAccessCode(code) {
+async function verifyRemoteAccessCode(user, code) {
   if (!API_URL || !code) {
     return { authorized: false, reachable: false };
   }
@@ -86,6 +127,7 @@ async function verifyRemoteAccessCode(code) {
   try {
     const payload = encodeFormPayload({
       action: "verifyEmployerAccess",
+      user: user,
       code: code
     });
     const response = await fetch(API_URL, {
@@ -119,6 +161,7 @@ function handleLogout() {
   resetEditMode();
   panel.classList.add("hidden");
   gate.classList.remove("hidden");
+  accessUser.value = "";
   accessCode.value = "";
   gateNotice.classList.add("hidden");
 }
@@ -162,6 +205,7 @@ async function saveJob(event) {
     id: editingJobId || `job-${Date.now()}`,
     title: String(formData.get("title") || "").trim(),
     region: String(formData.get("region") || "").trim(),
+    province: String(formData.get("province") || "").trim(),
     area: String(formData.get("area") || "").trim(),
     education: String(formData.get("education") || "").trim(),
     skills: String(formData.get("skills") || "").trim(),
@@ -173,7 +217,7 @@ async function saveJob(event) {
     updatedAt: now
   };
 
-  if (!job.title || !job.region || !job.area || !job.education || !job.description || !job.deadline || !job.applyUrl) {
+  if (!job.title || !job.region || !job.province || !job.area || !job.education || !job.description || !job.deadline || !job.applyUrl) {
     showNotice("Completa los campos obligatorios.", true);
     return;
   }
@@ -209,12 +253,18 @@ async function saveJob(event) {
 }
 
 async function renderEmployerList() {
-  const jobs = (await loadJobs()).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  const jobs = (await loadJobs())
+    .map(normalizeJob)
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   populateEmployerFilterOptions(employerRegionFilter, getUniqueValues(jobs, "region"));
+  populateEmployerFilterOptions(employerProvinceFilter, mergeValues(ECUADOR_PROVINCES, getUniqueValues(jobs, "province")));
   populateEmployerFilterOptions(employerAreaFilter, getUniqueValues(jobs, "area"));
 
   const filtered = jobs.filter((job) => {
     if (employerRegionFilter.value !== "all" && job.region !== employerRegionFilter.value) {
+      return false;
+    }
+    if (employerProvinceFilter.value !== "all" && job.province !== employerProvinceFilter.value) {
       return false;
     }
     if (employerAreaFilter.value !== "all" && job.area !== employerAreaFilter.value) {
@@ -233,7 +283,7 @@ async function renderEmployerList() {
       <article class="job-list__item">
         <div>
           <strong>${escapeHtml(job.title)}</strong>
-          <div>${escapeHtml(job.region)} · ${escapeHtml(job.area)}</div>
+          <div>${escapeHtml(job.region)} · ${escapeHtml(job.province || "Sin provincia")} · ${escapeHtml(job.area)}</div>
         </div>
         <div class="job-list__actions">
           <button type="button" class="secondary-btn" data-edit-id="${escapeHtml(job.id)}">Editar</button>
@@ -284,6 +334,7 @@ async function startEdit(id) {
   editingJobId = job.id;
   form.elements.title.value = job.title || "";
   form.elements.region.value = job.region || "";
+  form.elements.province.value = job.province || "";
   form.elements.area.value = job.area || "";
   form.elements.education.value = job.education || "";
   form.elements.skills.value = job.skills || "";
@@ -337,7 +388,7 @@ async function loadJobs() {
       });
       const data = await response.json();
       if (data && data.ok && Array.isArray(data.jobs)) {
-        return data.jobs;
+        return data.jobs.map(normalizeJob);
       }
     } catch {
       return [];
@@ -356,10 +407,17 @@ function loadLocalJobs() {
 
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map(normalizeJob) : [];
   } catch {
     return [];
   }
+}
+
+function populateProvinceInputOptions() {
+  const firstOption = provinceInput.querySelector("option")?.outerHTML || "<option value=\"\">Selecciona</option>";
+  provinceInput.innerHTML = firstOption + ECUADOR_PROVINCES.map((province) => `
+    <option value="${escapeHtml(province)}">${escapeHtml(province)}</option>
+  `).join("");
 }
 
 async function createRemoteJob(job) {
@@ -426,6 +484,18 @@ function readFileAsDataURL(file) {
     reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
     reader.readAsDataURL(file);
   });
+}
+
+function normalizeJob(job) {
+  return {
+    ...job,
+    province: String(job.province || job.region || "").trim()
+  };
+}
+
+function mergeValues(first, second) {
+  return [...new Set([...(first || []), ...(second || [])].filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
 }
 
 function showNotice(message, isError) {

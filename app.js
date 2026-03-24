@@ -1,11 +1,38 @@
 const STORAGE_KEY = "hiring_room_jobs_v1";
 const API_URL = (window.HIRING_API_URL || "").trim();
+const ECUADOR_PROVINCES = [
+  "Azuay",
+  "Bolivar",
+  "Canar",
+  "Carchi",
+  "Chimborazo",
+  "Cotopaxi",
+  "El Oro",
+  "Esmeraldas",
+  "Galapagos",
+  "Guayas",
+  "Imbabura",
+  "Loja",
+  "Los Rios",
+  "Manabi",
+  "Morona Santiago",
+  "Napo",
+  "Orellana",
+  "Pastaza",
+  "Pichincha",
+  "Santa Elena",
+  "Santo Domingo de los Tsachilas",
+  "Sucumbios",
+  "Tungurahua",
+  "Zamora Chinchipe"
+];
 
 const seedJobs = [
   {
     id: "seed-1",
     title: "Asistente de tienda",
     region: "Guayas",
+    province: "Guayas",
     area: "Ventas",
     education: "Bachiller",
     skills: "Servicio al cliente, caja",
@@ -19,6 +46,7 @@ const seedJobs = [
     id: "seed-2",
     title: "Analista de compras",
     region: "Pichincha",
+    province: "Pichincha",
     area: "Administracion",
     education: "Universitario",
     skills: "Excel, negociacion",
@@ -32,6 +60,7 @@ const seedJobs = [
     id: "seed-3",
     title: "Supervisor de bodega",
     region: "Azuay",
+    province: "Azuay",
     area: "Logistica",
     education: "Tecnico",
     skills: "Inventario, liderazgo",
@@ -43,7 +72,7 @@ const seedJobs = [
   }
 ];
 
-const regionFilter = document.getElementById("regionFilter");
+const provinceFilter = document.getElementById("provinceFilter");
 const areaFilter = document.getElementById("areaFilter");
 const recentFilter = document.getElementById("recentFilter");
 const jobGrid = document.getElementById("jobGrid");
@@ -68,17 +97,17 @@ init();
 
 async function init() {
   jobs = await loadJobs();
-  populateSelect(regionFilter, getUniqueValues("region"));
+  populateSelect(provinceFilter, mergeValues(ECUADOR_PROVINCES, getUniqueValues("province")));
   populateSelect(areaFilter, getUniqueValues("area"));
 
-  regionFilter.addEventListener("change", render);
+  provinceFilter.addEventListener("change", render);
   areaFilter.addEventListener("change", render);
   recentFilter.addEventListener("change", render);
 
   window.addEventListener("storage", (event) => {
     if (!API_URL && event.key === STORAGE_KEY) {
       jobs = loadLocalJobs();
-      populateSelect(regionFilter, getUniqueValues("region"));
+      populateSelect(provinceFilter, mergeValues(ECUADOR_PROVINCES, getUniqueValues("province")));
       populateSelect(areaFilter, getUniqueValues("area"));
       render();
     }
@@ -113,7 +142,7 @@ async function loadJobs() {
       });
       const data = await response.json();
       if (data && data.ok && Array.isArray(data.jobs)) {
-        return data.jobs;
+        return data.jobs.map(normalizeJob);
       }
     } catch {
       // If remote fails, keep local demo data as fallback.
@@ -137,7 +166,7 @@ function loadLocalJobs() {
       throw new Error("Formato invalido");
     }
 
-    return parsed;
+    return parsed.map(normalizeJob);
   } catch {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(seedJobs));
       return [...seedJobs];
@@ -180,16 +209,16 @@ function render() {
 }
 
 function applyFilters(list) {
-  const region = regionFilter.value;
+  const province = provinceFilter.value;
   const area = areaFilter.value;
   const recentDays = recentFilter.value;
 
   return list.filter((job) => {
-    if (region !== "all" && job.region !== region) {
+    if (area !== "all" && job.area !== area) {
       return false;
     }
 
-    if (area !== "all" && job.area !== area) {
+    if (province !== "all" && job.province !== province) {
       return false;
     }
 
@@ -208,6 +237,7 @@ function applyFilters(list) {
 
 function buildCard(job, index) {
   const imageSource = getImageSources(job.imageData)[0] || "";
+  const provinceLabel = job.province || "Sin provincia";
   const image = imageSource
     ? `<img class="job-card__image" src="${imageSource}" alt="Imagen de ${escapeHtml(job.title)}" data-job-image-id="${escapeHtml(job.id)}">`
     : '<div class="job-card__fallback" aria-hidden="true"></div>';
@@ -217,7 +247,7 @@ function buildCard(job, index) {
       ${image}
       <div class="job-card__body">
         <h3>${escapeHtml(job.title)}</h3>
-        <p class="meta">${escapeHtml(job.region)} · ${escapeHtml(job.area)}</p>
+        <p class="meta">${escapeHtml(provinceLabel)} · ${escapeHtml(job.area)}</p>
         <p class="job-card__desc">${escapeHtml(job.description || "Sin descripcion")}</p>
         <div class="badges">
           <span class="badge">Limite: ${formatDate(job.deadline)}</span>
@@ -238,7 +268,8 @@ function openJobModal(jobId) {
     return;
   }
 
-  modalJobHeader.innerHTML = `<h2>${escapeHtml(job.title)}</h2><p class="meta">${escapeHtml(job.region)} · ${escapeHtml(job.area)}</p>`;
+  const provinceLabel = job.province || "Sin provincia";
+  modalJobHeader.innerHTML = `<h2>${escapeHtml(job.title)}</h2><p class="meta">${escapeHtml(provinceLabel)} · ${escapeHtml(job.area)}</p>`;
   if (job.imageData) {
     const imageSource = getImageSources(job.imageData)[0] || "";
     modalJobImage.src = imageSource;
@@ -340,6 +371,20 @@ function extractDriveFileId(url) {
   }
 
   return "";
+}
+
+function normalizeJob(job) {
+  const normalized = {
+    ...job
+  };
+
+  normalized.province = String(job.province || job.region || "").trim();
+  return normalized;
+}
+
+function mergeValues(first, second) {
+  return [...new Set([...(first || []), ...(second || [])].filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
 }
 
 function formatDate(value) {

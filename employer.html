@@ -18,6 +18,10 @@
       <h2>Acceso del empleador</h2>
       <p>Este acceso es solo demostrativo para Firebase Hosting estatico.</p>
       <label class="field">
+        <span>Usuario</span>
+        <input type="text" id="accessUser" placeholder="Ingresa usuario">
+      </label>
+      <label class="field">
         <span>Clave</span>
         <input type="password" id="accessCode" placeholder="Ingresa clave">
       </label>
@@ -57,6 +61,13 @@
                   <option>Manabi</option>
                   <option>Loja</option>
                   <option>El Oro</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Provincia</span>
+                <select name="province" id="provinceInput" required>
+                  <option value="">Selecciona</option>
                 </select>
               </label>
 
@@ -124,6 +135,12 @@
             <label class="field">
               <span>Filtrar por region</span>
               <select id="employerRegionFilter">
+                <option value="all">Todas</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Filtrar por provincia</span>
+              <select id="employerProvinceFilter">
                 <option value="all">Todas</option>
               </select>
             </label>

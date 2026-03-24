@@ -5,11 +5,39 @@ const CONFIG_SHEET_NAME = "config";
 const DRIVE_FOLDER_ID = "1UlYKIhsst8G3M7LAuaPXl0ueGmCu4k-f";
 const ORG_DOMAIN = "gmail.com";
 const DEFAULT_EMPLOYER_ACCESS_CODE = "empleador2026";
+const APP_VERSION = "2026-03-24-auth-users-v2";
+const JOB_HEADERS = [
+  "id",
+  "title",
+  "region",
+  "area",
+  "province",
+  "education",
+  "skills",
+  "description",
+  "deadline",
+  "applyUrl",
+  "imageUrl",
+  "createdAt",
+  "createdBy",
+  "updatedAt",
+  "updatedBy"
+];
 
 function doGet(e) {
   try {
     assertDomainAccess_();
     const action = String((e && e.parameter && e.parameter.action) || "listJobs");
+
+    if (action === "status") {
+      const users = getEmployerUsers_();
+      return jsonOut({
+        ok: true,
+        version: APP_VERSION,
+        authMode: Object.keys(users).length > 0 ? "users" : "global",
+        usersConfigured: Object.keys(users).length
+      });
+    }
 
     if (action === "listJobs") {
       return jsonOut({ ok: true, jobs: listJobs_() });
@@ -28,7 +56,10 @@ function doPost(e) {
     const action = String(payload.action || "");
 
     if (action === "verifyEmployerAccess") {
-      const authorized = verifyEmployerAccess_(String(payload.code || ""));
+      const authorized = verifyEmployerAccess_(
+        String(payload.user || payload.username || ""),
+        String(payload.code || "")
+      );
       return jsonOut({ ok: true, authorized: authorized });
     }
 
@@ -132,25 +163,89 @@ function getSheet_() {
   }
 
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow([
-      "id",
-      "title",
-      "region",
-      "area",
-      "education",
-      "skills",
-      "description",
-      "deadline",
-      "applyUrl",
-      "imageUrl",
-      "createdAt",
-      "createdBy",
-      "updatedAt",
-      "updatedBy"
-    ]);
+    sheet.appendRow(JOB_HEADERS);
+  } else {
+    ensureJobHeaders_(sheet);
   }
 
   return sheet;
+}
+
+function ensureJobHeaders_(sheet) {
+  const headers = sheet
+    .getRange(1, 1, 1, sheet.getLastColumn())
+    .getValues()[0]
+    .map(function(value) {
+      return String(value || "").trim().toLowerCase();
+    });
+
+  JOB_HEADERS.forEach(function(header) {
+    if (headers.indexOf(header.toLowerCase()) >= 0) {
+      return;
+    }
+    sheet.getRange(1, sheet.getLastColumn() + 1).setValue(header);
+    headers.push(header.toLowerCase());
+  });
+}
+
+function getHeaderMap_(headersRow) {
+  const map = {};
+  (headersRow || []).forEach(function(headerValue, index) {
+    const key = String(headerValue || "").trim().toLowerCase();
+    if (key) {
+      map[key] = index;
+    }
+  });
+  return map;
+}
+
+function getValueByHeader_(row, headerMap, headerName) {
+  const index = headerMap[String(headerName || "").toLowerCase()];
+  if (typeof index !== "number") {
+    return "";
+  }
+  return String(row[index] || "");
+}
+
+function buildRowByHeaders_(headersRow, job) {
+  return (headersRow || []).map(function(headerValue) {
+    const key = String(headerValue || "").trim();
+    switch (key.toLowerCase()) {
+      case "id":
+        return job.id;
+      case "title":
+        return job.title;
+      case "region":
+        return job.region;
+      case "area":
+        return job.area;
+      case "province":
+        return job.province;
+      case "education":
+        return job.education;
+      case "skills":
+        return job.skills;
+      case "description":
+        return job.description;
+      case "deadline":
+        return job.deadline;
+      case "applyurl":
+        return job.applyUrl;
+      case "imageurl":
+      case "imagedata":
+        return job.imageData;
+      case "createdat":
+        return job.createdAt;
+      case "createdby":
+        return job.createdBy;
+      case "updatedat":
+        return job.updatedAt;
+      case "updatedby":
+        return job.updatedBy;
+      default:
+        return "";
+    }
+  });
 }
 
 function listJobs_() {
@@ -161,40 +256,47 @@ function listJobs_() {
     return [];
   }
 
+  const headersRow = values[0];
+  const headerMap = getHeaderMap_(headersRow);
   const rows = values.slice(1);
 
   return rows
     .filter(function(row) {
-      return row[0];
+      return getValueByHeader_(row, headerMap, "id");
     })
     .map(function(row) {
+      const region = getValueByHeader_(row, headerMap, "region");
+      const province = getValueByHeader_(row, headerMap, "province") || region;
       const hasApplyUrlColumn = row.length >= 11;
-      const hasAuditColumns = row.length >= 14;
       return {
-        id: String(row[0] || ""),
-        title: String(row[1] || ""),
-        region: String(row[2] || ""),
-        area: String(row[3] || ""),
-        education: String(row[4] || ""),
-        skills: String(row[5] || ""),
-        description: String(row[6] || ""),
-        deadline: String(row[7] || ""),
-        applyUrl: hasApplyUrlColumn ? String(row[8] || "") : "",
-        imageData: hasApplyUrlColumn ? String(row[9] || "") : String(row[8] || ""),
-        createdAt: hasApplyUrlColumn ? String(row[10] || "") : String(row[9] || ""),
-        createdBy: hasAuditColumns ? String(row[11] || "") : "",
-        updatedAt: hasAuditColumns ? String(row[12] || "") : "",
-        updatedBy: hasAuditColumns ? String(row[13] || "") : ""
+        id: getValueByHeader_(row, headerMap, "id"),
+        title: getValueByHeader_(row, headerMap, "title"),
+        region: region,
+        area: getValueByHeader_(row, headerMap, "area"),
+        education: getValueByHeader_(row, headerMap, "education"),
+        skills: getValueByHeader_(row, headerMap, "skills"),
+        description: getValueByHeader_(row, headerMap, "description"),
+        deadline: getValueByHeader_(row, headerMap, "deadline"),
+        applyUrl: getValueByHeader_(row, headerMap, "applyurl") || (hasApplyUrlColumn ? String(row[8] || "") : ""),
+        imageData: getValueByHeader_(row, headerMap, "imageurl") || getValueByHeader_(row, headerMap, "imagedata") || (hasApplyUrlColumn ? String(row[9] || "") : String(row[8] || "")),
+        createdAt: getValueByHeader_(row, headerMap, "createdat") || (hasApplyUrlColumn ? String(row[10] || "") : String(row[9] || "")),
+        createdBy: getValueByHeader_(row, headerMap, "createdby"),
+        updatedAt: getValueByHeader_(row, headerMap, "updatedat"),
+        updatedBy: getValueByHeader_(row, headerMap, "updatedby"),
+        province: province
       };
     });
 }
 
 function createJob_(job, currentUser) {
   const now = new Date().toISOString();
+  const province = String(job.province || "").trim();
+  const region = String(job.region || province || "").trim();
   const clean = {
     id: "job-" + Date.now(),
     title: String(job.title || "").trim(),
-    region: String(job.region || "").trim(),
+    region: region,
+    province: province,
     area: String(job.area || "").trim(),
     education: String(job.education || "").trim(),
     skills: String(job.skills || "").trim(),
@@ -208,7 +310,7 @@ function createJob_(job, currentUser) {
     updatedBy: currentUser
   };
 
-  if (!clean.title || !clean.region || !clean.area || !clean.education || !clean.description || !clean.deadline || !clean.applyUrl) {
+  if (!clean.title || !clean.province || !clean.area || !clean.education || !clean.description || !clean.deadline || !clean.applyUrl) {
     throw new Error("Campos obligatorios incompletos");
   }
 
@@ -217,22 +319,8 @@ function createJob_(job, currentUser) {
   }
 
   const sheet = getSheet_();
-  sheet.appendRow([
-    clean.id,
-    clean.title,
-    clean.region,
-    clean.area,
-    clean.education,
-    clean.skills,
-    clean.description,
-    clean.deadline,
-    clean.applyUrl,
-    clean.imageData,
-    clean.createdAt,
-    clean.createdBy,
-    clean.updatedAt,
-    clean.updatedBy
-  ]);
+  const headersRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  sheet.appendRow(buildRowByHeaders_(headersRow, clean));
 
   return clean;
 }
@@ -244,9 +332,16 @@ function deleteJob_(id, currentUser) {
 
   const sheet = getSheet_();
   const values = sheet.getDataRange().getValues();
+  const headersRow = values[0] || [];
+  const headerMap = getHeaderMap_(headersRow);
+  const idIndex = headerMap.id;
+
+  if (typeof idIndex !== "number") {
+    throw new Error("No se encontro la columna id");
+  }
 
   for (let i = values.length - 1; i >= 1; i -= 1) {
-    if (String(values[i][0]) === id) {
+    if (String(values[i][idIndex] || "") === id) {
       sheet.deleteRow(i + 1);
       return true;
     }
@@ -263,17 +358,24 @@ function updateJob_(job, currentUser) {
 
   const sheet = getSheet_();
   const values = sheet.getDataRange().getValues();
+  const headersRow = values[0] || [];
+  const headerMap = getHeaderMap_(headersRow);
+  const idIndex = headerMap.id;
+
+  if (typeof idIndex !== "number") {
+    throw new Error("No se encontro la columna id");
+  }
 
   for (let i = 1; i < values.length; i += 1) {
-    if (String(values[i][0] || "") !== id) {
+    if (String(values[i][idIndex] || "") !== id) {
       continue;
     }
 
-    const hasApplyUrlColumn = values[i].length >= 11;
-    const hasAuditColumns = values[i].length >= 14;
-    const previousImage = hasApplyUrlColumn ? String(values[i][9] || "") : String(values[i][8] || "");
-    const previousCreatedAt = hasApplyUrlColumn ? String(values[i][10] || "") : String(values[i][9] || "");
-    const previousCreatedBy = hasAuditColumns ? String(values[i][11] || "") : "";
+    const previousRegion = getValueByHeader_(values[i], headerMap, "region");
+    const previousImage = getValueByHeader_(values[i], headerMap, "imageurl") || getValueByHeader_(values[i], headerMap, "imagedata");
+    const previousCreatedAt = getValueByHeader_(values[i], headerMap, "createdat");
+    const previousCreatedBy = getValueByHeader_(values[i], headerMap, "createdby");
+    const previousProvince = getValueByHeader_(values[i], headerMap, "province") || previousRegion;
     const now = new Date().toISOString();
     const imageCandidate = String(job.imageData || "").trim();
     const imageData = imageCandidate.startsWith("data:")
@@ -283,7 +385,8 @@ function updateJob_(job, currentUser) {
     const clean = {
       id: id,
       title: String(job.title || "").trim(),
-      region: String(job.region || "").trim(),
+      province: String(job.province || previousProvince || "").trim(),
+      region: String(job.region || previousRegion || "").trim(),
       area: String(job.area || "").trim(),
       education: String(job.education || "").trim(),
       skills: String(job.skills || "").trim(),
@@ -297,55 +400,17 @@ function updateJob_(job, currentUser) {
       updatedBy: currentUser
     };
 
-    if (!clean.title || !clean.region || !clean.area || !clean.education || !clean.description || !clean.deadline || !clean.applyUrl) {
+    if (!clean.region) {
+      clean.region = clean.province;
+    }
+
+    if (!clean.title || !clean.province || !clean.area || !clean.education || !clean.description || !clean.deadline || !clean.applyUrl) {
       throw new Error("Campos obligatorios incompletos");
     }
 
-    if (hasAuditColumns) {
-      sheet.getRange(i + 1, 1, 1, 14).setValues([[
-        clean.id,
-        clean.title,
-        clean.region,
-        clean.area,
-        clean.education,
-        clean.skills,
-        clean.description,
-        clean.deadline,
-        clean.applyUrl,
-        clean.imageData,
-        clean.createdAt,
-        clean.createdBy,
-        clean.updatedAt,
-        clean.updatedBy
-      ]]);
-    } else if (hasApplyUrlColumn) {
-      sheet.getRange(i + 1, 1, 1, 11).setValues([[
-        clean.id,
-        clean.title,
-        clean.region,
-        clean.area,
-        clean.education,
-        clean.skills,
-        clean.description,
-        clean.deadline,
-        clean.applyUrl,
-        clean.imageData,
-        clean.createdAt
-      ]]);
-    } else {
-      sheet.getRange(i + 1, 1, 1, 10).setValues([[
-        clean.id,
-        clean.title,
-        clean.region,
-        clean.area,
-        clean.education,
-        clean.skills,
-        clean.description,
-        clean.deadline,
-        clean.imageData,
-        clean.createdAt
-      ]]);
-    }
+    sheet.getRange(i + 1, 1, 1, headersRow.length).setValues([
+      buildRowByHeaders_(headersRow, clean)
+    ]);
 
     return clean;
   }
@@ -433,8 +498,86 @@ function getEmployerAccessCode_() {
   return DEFAULT_EMPLOYER_ACCESS_CODE;
 }
 
-function verifyEmployerAccess_(code) {
+function getEmployerUsers_() {
+  const sheet = getConfigSheet_();
+  const values = sheet.getDataRange().getValues();
+  const users = {};
+  const reservedKeys = {
+    employeraccesscode: true,
+    employeraccess: true,
+    employerusers: true
+  };
+
+  for (let i = 1; i < values.length; i += 1) {
+    const key = String(values[i][0] || "").trim();
+    const value = String(values[i][1] || "").trim();
+    if (!key || !value) {
+      continue;
+    }
+
+    const lowerKey = key.toLowerCase();
+
+    if (lowerKey.indexOf("employeruser.") === 0) {
+      const username = key.substring("employerUser.".length).trim().toLowerCase();
+      if (username) {
+        users[username] = value;
+      }
+      continue;
+    }
+
+    if (lowerKey === "employeruser") {
+      const idx = value.indexOf(":");
+      if (idx > 0) {
+        const username = value.substring(0, idx).trim().toLowerCase();
+        const password = value.substring(idx + 1).trim();
+        if (username && password) {
+          users[username] = password;
+        }
+      }
+      continue;
+    }
+
+    if (lowerKey === "employerusers") {
+      try {
+        const parsed = JSON.parse(value);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          Object.keys(parsed).forEach(function(username) {
+            const normalized = String(username || "").trim().toLowerCase();
+            const password = String(parsed[username] || "").trim();
+            if (normalized && password) {
+              users[normalized] = password;
+            }
+          });
+        }
+      } catch (_ignored) {
+        // Ignore malformed JSON in employerUsers and continue with other rows.
+      }
+      continue;
+    }
+
+    // Generic mode: any non-reserved key/value row works as username/password.
+    if (!reservedKeys[lowerKey]) {
+      users[lowerKey] = value;
+    }
+  }
+
+  return users;
+}
+
+function verifyEmployerAccess_(user, code) {
+  const enteredUser = String(user || "").trim().toLowerCase();
   const entered = String(code || "").trim().toLowerCase();
+  const users = getEmployerUsers_();
+  const userKeys = Object.keys(users);
+
+  if (userKeys.length > 0) {
+    if (!enteredUser) {
+      return false;
+    }
+    const expectedUserCode = String(users[enteredUser] || "").trim().toLowerCase();
+    return Boolean(expectedUserCode) && Boolean(entered) && expectedUserCode === entered;
+  }
+
   const expected = String(getEmployerAccessCode_() || "").trim().toLowerCase();
   return Boolean(entered) && entered === expected;
 }
