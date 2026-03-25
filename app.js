@@ -398,8 +398,28 @@ function normalizeArea_(value) {
   }
 
   const lower = clean.toLowerCase();
-  if (lower === "finanzas" || lower === "tiendas") {
+  if (lower === "finanzas" || lower === "tiendas" || lower === "tienda") {
     return "Tienda";
+  }
+
+  if (lower === "administracion") {
+    return "Administracion";
+  }
+
+  if (lower === "logistica") {
+    return "Logistica";
+  }
+
+  if (lower === "ventas") {
+    return "Ventas";
+  }
+
+  if (lower === "tecnologia") {
+    return "Tecnologia";
+  }
+
+  if (lower === "recursos humanos") {
+    return "Recursos Humanos";
   }
 
   return clean;

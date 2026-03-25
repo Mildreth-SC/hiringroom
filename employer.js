@@ -63,6 +63,7 @@ init();
 
 function init() {
   populateProvinceInputOptions();
+  sanitizeAreaInputOptions();
   unlockBtn.addEventListener("click", handleUnlock);
   accessUser.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -214,7 +215,7 @@ async function saveJob(event) {
     title: String(formData.get("title") || "").trim(),
     region: String(formData.get("region") || "").trim(),
     province: String(formData.get("province") || "").trim(),
-    area: String(formData.get("area") || "").trim(),
+    area: normalizeArea_(formData.get("area")),
     education: String(formData.get("education") || "").trim(),
     skills: String(formData.get("skills") || "").trim(),
     description: String(formData.get("description") || "").trim(),
@@ -343,7 +344,9 @@ async function startEdit(id) {
   form.elements.title.value = job.title || "";
   form.elements.region.value = job.region || "";
   form.elements.province.value = job.province || "";
-  form.elements.area.value = job.area || "";
+  const normalizedArea = normalizeArea_(job.area);
+  ensureSelectHasOption_(form.elements.area, normalizedArea);
+  form.elements.area.value = normalizedArea;
   form.elements.education.value = job.education || "";
   form.elements.skills.value = job.skills || "";
   form.elements.description.value = job.description || "";
@@ -509,11 +512,85 @@ function normalizeArea_(value) {
   }
 
   const lower = clean.toLowerCase();
-  if (lower === "finanzas" || lower === "tiendas") {
+  if (lower === "finanzas" || lower === "tiendas" || lower === "tienda") {
     return "Tienda";
   }
 
+  if (lower === "administracion") {
+    return "Administracion";
+  }
+
+  if (lower === "logistica") {
+    return "Logistica";
+  }
+
+  if (lower === "ventas") {
+    return "Ventas";
+  }
+
+  if (lower === "tecnologia") {
+    return "Tecnologia";
+  }
+
+  if (lower === "recursos humanos") {
+    return "Recursos Humanos";
+  }
+
   return clean;
+}
+
+function sanitizeAreaInputOptions() {
+  const areaSelect = form?.elements?.area;
+  if (!areaSelect || !areaSelect.options) {
+    return;
+  }
+
+  const seen = new Set();
+  const normalizedOptions = [];
+  Array.from(areaSelect.options).forEach((option) => {
+    const raw = String(option.value || option.textContent || "").trim();
+    if (!raw) {
+      normalizedOptions.push({ value: "", label: option.textContent || "Selecciona" });
+      return;
+    }
+
+    const normalized = normalizeArea_(raw);
+    if (!normalized || seen.has(normalized)) {
+      return;
+    }
+
+    seen.add(normalized);
+    normalizedOptions.push({ value: normalized, label: normalized });
+  });
+
+  AREA_OPTIONS.forEach((area) => {
+    if (seen.has(area)) {
+      return;
+    }
+    seen.add(area);
+    normalizedOptions.push({ value: area, label: area });
+  });
+
+  areaSelect.innerHTML = normalizedOptions
+    .map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`)
+    .join("");
+}
+
+function ensureSelectHasOption_(select, value) {
+  const normalized = normalizeArea_(value);
+  if (!select || !normalized) {
+    return;
+  }
+
+  const exists = Array.from(select.options || []).some((option) => option.value === normalized);
+  if (exists) {
+    return;
+  }
+
+  const option = document.createElement("option");
+  option.value = normalized;
+  option.textContent = normalized;
+  select.appendChild(option);
 }
 
 function mergeValues(first, second) {
