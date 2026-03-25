@@ -26,6 +26,14 @@ const ECUADOR_PROVINCES = [
   "Tungurahua",
   "Zamora Chinchipe"
 ];
+const AREA_OPTIONS = [
+  "Ventas",
+  "Administracion",
+  "Logistica",
+  "Tienda",
+  "Tecnologia",
+  "Recursos Humanos"
+];
 
 const seedJobs = [
   {
@@ -98,7 +106,7 @@ init();
 async function init() {
   jobs = await loadJobs();
   populateSelect(provinceFilter, mergeValues(ECUADOR_PROVINCES, getUniqueValues("province")));
-  populateSelect(areaFilter, getUniqueValues("area"));
+  populateSelect(areaFilter, mergeValues(AREA_OPTIONS, getUniqueValues("area")));
 
   provinceFilter.addEventListener("change", render);
   areaFilter.addEventListener("change", render);
@@ -108,7 +116,7 @@ async function init() {
     if (!API_URL && event.key === STORAGE_KEY) {
       jobs = loadLocalJobs();
       populateSelect(provinceFilter, mergeValues(ECUADOR_PROVINCES, getUniqueValues("province")));
-      populateSelect(areaFilter, getUniqueValues("area"));
+      populateSelect(areaFilter, mergeValues(AREA_OPTIONS, getUniqueValues("area")));
       render();
     }
   });
@@ -379,7 +387,22 @@ function normalizeJob(job) {
   };
 
   normalized.province = String(job.province || job.region || "").trim();
+  normalized.area = normalizeArea_(job.area);
   return normalized;
+}
+
+function normalizeArea_(value) {
+  const clean = String(value || "").trim();
+  if (!clean) {
+    return "";
+  }
+
+  const lower = clean.toLowerCase();
+  if (lower === "finanzas" || lower === "tiendas") {
+    return "Tienda";
+  }
+
+  return clean;
 }
 
 function mergeValues(first, second) {

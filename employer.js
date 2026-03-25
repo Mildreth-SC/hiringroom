@@ -27,6 +27,14 @@ const ECUADOR_PROVINCES = [
   "Tungurahua",
   "Zamora Chinchipe"
 ];
+const AREA_OPTIONS = [
+  "Ventas",
+  "Administracion",
+  "Logistica",
+  "Tienda",
+  "Tecnologia",
+  "Recursos Humanos"
+];
 
 const gate = document.getElementById("gate");
 const panel = document.getElementById("employerPanel");
@@ -258,7 +266,7 @@ async function renderEmployerList() {
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   populateEmployerFilterOptions(employerRegionFilter, getUniqueValues(jobs, "region"));
   populateEmployerFilterOptions(employerProvinceFilter, mergeValues(ECUADOR_PROVINCES, getUniqueValues(jobs, "province")));
-  populateEmployerFilterOptions(employerAreaFilter, getUniqueValues(jobs, "area"));
+  populateEmployerFilterOptions(employerAreaFilter, mergeValues(AREA_OPTIONS, getUniqueValues(jobs, "area")));
 
   const filtered = jobs.filter((job) => {
     if (employerRegionFilter.value !== "all" && job.region !== employerRegionFilter.value) {
@@ -489,8 +497,23 @@ function readFileAsDataURL(file) {
 function normalizeJob(job) {
   return {
     ...job,
-    province: String(job.province || job.region || "").trim()
+    province: String(job.province || job.region || "").trim(),
+    area: normalizeArea_(job.area)
   };
+}
+
+function normalizeArea_(value) {
+  const clean = String(value || "").trim();
+  if (!clean) {
+    return "";
+  }
+
+  const lower = clean.toLowerCase();
+  if (lower === "finanzas" || lower === "tiendas") {
+    return "Tienda";
+  }
+
+  return clean;
 }
 
 function mergeValues(first, second) {
