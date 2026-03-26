@@ -55,7 +55,7 @@ body {
   align-items: center;
   background:
     linear-gradient(110deg, rgba(10, 63, 123, 0.95) 0%, rgba(18, 88, 160, 0.85) 55%, rgba(25, 108, 195, 0.72) 100%),
-    url("https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=1800&q=80") center/cover;
+    url("assets/_DSC8291.jpg") center/cover;
   border-bottom-left-radius: 28px;
   border-bottom-right-radius: 28px;
   overflow: hidden;
