@@ -55,6 +55,7 @@ const employerAreaFilter = document.getElementById("employerAreaFilter");
 
 let selectedImageData = "";
 let editingJobId = null;
+let editingJobSnapshot = null;
 
 init();
 
@@ -195,6 +196,7 @@ async function saveJob(event) {
   const now = new Date().toISOString();
   const selectedFile = imageInput.files?.[0] || null;
   let imageDataToSave = selectedImageData;
+  const fallbackDeadline = editingJobSnapshot ? editingJobSnapshot.deadline : "";
 
   if (selectedFile) {
     try {
@@ -216,7 +218,7 @@ async function saveJob(event) {
     education: String(formData.get("education") || "").trim(),
     skills: String(formData.get("skills") || "").trim(),
     description: String(formData.get("description") || "").trim(),
-    deadline: String(formData.get("deadline") || "").trim(),
+    deadline: normalizeDeadlineValue_(formData.get("deadline") || fallbackDeadline),
     applyUrl: String(formData.get("applyUrl") || "").trim(),
     imageData: imageDataToSave,
     createdAt: now,
@@ -347,8 +349,13 @@ async function startEdit(id) {
   form.elements.education.value = job.education || "";
   form.elements.skills.value = job.skills || "";
   form.elements.description.value = job.description || "";
-  form.elements.deadline.value = job.deadline || "";
+  const normalizedDeadline = normalizeDeadlineValue_(job.deadline);
+  form.elements.deadline.value = normalizedDeadline;
   form.elements.applyUrl.value = job.applyUrl || "";
+  editingJobSnapshot = {
+    ...job,
+    deadline: normalizedDeadline
+  };
 
   selectedImageData = job.imageData || "";
   if (selectedImageData) {
@@ -364,6 +371,7 @@ async function startEdit(id) {
 
 function resetEditMode() {
   editingJobId = null;
+  editingJobSnapshot = null;
   form.reset();
   selectedImageData = "";
   previewImage.removeAttribute("src");
@@ -498,8 +506,31 @@ function normalizeJob(job) {
   return {
     ...job,
     province: String(job.province || job.region || "").trim(),
-    area: normalizeArea_(job.area)
+    area: normalizeArea_(job.area),
+    deadline: normalizeDeadlineValue_(job.deadline)
   };
+}
+
+function normalizeDeadlineValue_(value) {
+  const clean = String(value || "").trim();
+  if (!clean) {
+    return "";
+  }
+
+  const ymd = clean.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymd) {
+    return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
+  }
+
+  const parsed = new Date(clean);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  const year = parsed.getUTCFullYear();
+  const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function normalizeArea_(value) {

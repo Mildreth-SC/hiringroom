@@ -385,6 +385,7 @@ function normalizeJob(job) {
 
   normalized.province = String(job.province || job.region || "").trim();
   normalized.area = normalizeArea_(job.area);
+  normalized.deadline = normalizeDeadlineValue_(job.deadline);
   return normalized;
 }
 
@@ -416,20 +417,41 @@ function mergeValues(first, second) {
 }
 
 function formatDate(value) {
-  if (!value) {
+  const normalized = normalizeDeadlineValue_(value);
+  if (!normalized) {
     return "No definida";
   }
 
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) {
-    return "No definida";
-  }
+  const [year, month, day] = normalized.split("-").map((part) => Number(part));
+  const date = new Date(Date.UTC(year, month - 1, day));
 
   return date.toLocaleDateString("es-EC", {
     day: "2-digit",
     month: "short",
     year: "numeric"
   });
+}
+
+function normalizeDeadlineValue_(value) {
+  const clean = String(value || "").trim();
+  if (!clean) {
+    return "";
+  }
+
+  const ymd = clean.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymd) {
+    return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
+  }
+
+  const parsed = new Date(clean);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  const year = parsed.getUTCFullYear();
+  const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function daysAgo(isoDate) {

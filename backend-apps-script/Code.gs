@@ -207,6 +207,37 @@ function getValueByHeader_(row, headerMap, headerName) {
   return String(row[index] || "");
 }
 
+function getRawValueByHeader_(row, headerMap, headerName) {
+  const index = headerMap[String(headerName || "").toLowerCase()];
+  if (typeof index !== "number") {
+    return "";
+  }
+  return row[index];
+}
+
+function normalizeDeadlineValue_(value) {
+  if (Object.prototype.toString.call(value) === "[object Date]" && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone() || "Etc/UTC", "yyyy-MM-dd");
+  }
+
+  const clean = String(value || "").trim();
+  if (!clean) {
+    return "";
+  }
+
+  const ymd = clean.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymd) {
+    return ymd[1] + "-" + ymd[2] + "-" + ymd[3];
+  }
+
+  const parsed = new Date(clean);
+  if (isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  return Utilities.formatDate(parsed, Session.getScriptTimeZone() || "Etc/UTC", "yyyy-MM-dd");
+}
+
 function buildRowByHeaders_(headersRow, job) {
   return (headersRow || []).map(function(headerValue) {
     const key = String(headerValue || "").trim();
@@ -276,7 +307,7 @@ function listJobs_() {
         education: getValueByHeader_(row, headerMap, "education"),
         skills: getValueByHeader_(row, headerMap, "skills"),
         description: getValueByHeader_(row, headerMap, "description"),
-        deadline: getValueByHeader_(row, headerMap, "deadline"),
+        deadline: normalizeDeadlineValue_(getRawValueByHeader_(row, headerMap, "deadline")),
         applyUrl: getValueByHeader_(row, headerMap, "applyurl") || (hasApplyUrlColumn ? String(row[8] || "") : ""),
         imageData: getValueByHeader_(row, headerMap, "imageurl") || getValueByHeader_(row, headerMap, "imagedata") || (hasApplyUrlColumn ? String(row[9] || "") : String(row[8] || "")),
         createdAt: getValueByHeader_(row, headerMap, "createdat") || (hasApplyUrlColumn ? String(row[10] || "") : String(row[9] || "")),
@@ -301,7 +332,7 @@ function createJob_(job, currentUser) {
     education: String(job.education || "").trim(),
     skills: String(job.skills || "").trim(),
     description: String(job.description || "").trim(),
-    deadline: String(job.deadline || "").trim(),
+    deadline: normalizeDeadlineValue_(job.deadline),
     applyUrl: String(job.applyUrl || "").trim(),
     imageData: "",
     createdAt: now,
@@ -376,6 +407,7 @@ function updateJob_(job, currentUser) {
     const previousCreatedAt = getValueByHeader_(values[i], headerMap, "createdat");
     const previousCreatedBy = getValueByHeader_(values[i], headerMap, "createdby");
     const previousProvince = getValueByHeader_(values[i], headerMap, "province") || previousRegion;
+    const previousDeadline = normalizeDeadlineValue_(getRawValueByHeader_(values[i], headerMap, "deadline"));
     const now = new Date().toISOString();
     const imageCandidate = String(job.imageData || "").trim();
     const imageData = imageCandidate.startsWith("data:")
@@ -391,7 +423,7 @@ function updateJob_(job, currentUser) {
       education: String(job.education || "").trim(),
       skills: String(job.skills || "").trim(),
       description: String(job.description || "").trim(),
-      deadline: String(job.deadline || "").trim(),
+      deadline: normalizeDeadlineValue_(job.deadline) || previousDeadline,
       applyUrl: String(job.applyUrl || "").trim(),
       imageData: imageData,
       createdAt: previousCreatedAt || now,
