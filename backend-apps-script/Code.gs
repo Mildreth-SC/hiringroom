@@ -410,9 +410,10 @@ function updateJob_(job, currentUser) {
     const previousDeadline = normalizeDeadlineValue_(getRawValueByHeader_(values[i], headerMap, "deadline"));
     const now = new Date().toISOString();
     const imageCandidate = String(job.imageData || "").trim();
-    const imageData = imageCandidate.startsWith("data:")
+    const uploadedImage = imageCandidate.startsWith("data:")
       ? saveImageToDrive_(imageCandidate, id)
-      : (imageCandidate || previousImage);
+      : "";
+    const imageData = uploadedImage || imageCandidate || previousImage;
 
     const clean = {
       id: id,

@@ -176,15 +176,15 @@ function handleLogout() {
 function handleImage(event) {
   const file = event.target.files?.[0];
   if (!file) {
-    selectedImageData = "";
-    previewImage.removeAttribute("src");
+    selectedImageData = editingJobSnapshot ? String(editingJobSnapshot.imageData || "") : "";
+    renderPreviewImage_(selectedImageData);
     return;
   }
 
   const reader = new FileReader();
   reader.onload = () => {
     selectedImageData = String(reader.result || "");
-    previewImage.src = selectedImageData;
+    renderPreviewImage_(selectedImageData);
   };
   reader.readAsDataURL(file);
 }
@@ -195,14 +195,14 @@ async function saveJob(event) {
   const formData = new FormData(form);
   const now = new Date().toISOString();
   const selectedFile = imageInput.files?.[0] || null;
-  let imageDataToSave = selectedImageData;
+  let imageDataToSave = selectedImageData || (editingJobSnapshot ? String(editingJobSnapshot.imageData || "") : "");
   const fallbackDeadline = editingJobSnapshot ? editingJobSnapshot.deadline : "";
 
   if (selectedFile) {
     try {
       imageDataToSave = await readFileAsDataURL(selectedFile);
       selectedImageData = imageDataToSave;
-      previewImage.src = imageDataToSave;
+      renderPreviewImage_(imageDataToSave);
     } catch {
       showNotice("No se pudo leer la imagen seleccionada.", true);
       return;
@@ -357,12 +357,8 @@ async function startEdit(id) {
     deadline: normalizedDeadline
   };
 
-  selectedImageData = job.imageData || "";
-  if (selectedImageData) {
-    previewImage.src = selectedImageData;
-  } else {
-    previewImage.removeAttribute("src");
-  }
+  selectedImageData = normalizeImageValue_(job.imageData);
+  renderPreviewImage_(selectedImageData);
 
   submitJobBtn.textContent = "Guardar cambios";
   cancelEditBtn.classList.remove("hidden");
@@ -375,6 +371,7 @@ function resetEditMode() {
   form.reset();
   selectedImageData = "";
   previewImage.removeAttribute("src");
+  previewImage.onerror = null;
   submitJobBtn.textContent = "Enviar oferta";
   cancelEditBtn.classList.add("hidden");
 }
@@ -507,8 +504,84 @@ function normalizeJob(job) {
     ...job,
     province: String(job.province || job.region || "").trim(),
     area: normalizeArea_(job.area),
-    deadline: normalizeDeadlineValue_(job.deadline)
+    deadline: normalizeDeadlineValue_(job.deadline),
+    imageData: normalizeImageValue_(job.imageData || job.imageUrl)
   };
+}
+
+function normalizeImageValue_(value) {
+  const clean = String(value || "").trim();
+  if (!clean) {
+    return "";
+  }
+
+  const lower = clean.toLowerCase();
+  if (lower === "undefined" || lower === "null" || lower === "nan") {
+    return "";
+  }
+
+  if (clean.startsWith("data:")) {
+    return clean;
+  }
+
+  if (/^https?:\/\//i.test(clean)) {
+    return clean;
+  }
+
+  return "";
+}
+
+function renderPreviewImage_(value) {
+  const candidates = getImageSources_(normalizeImageValue_(value));
+  if (candidates.length === 0) {
+    previewImage.removeAttribute("src");
+    previewImage.onerror = null;
+    return;
+  }
+
+  let currentIndex = 0;
+  previewImage.onerror = () => {
+    currentIndex += 1;
+    if (currentIndex >= candidates.length) {
+      previewImage.onerror = null;
+      previewImage.removeAttribute("src");
+      return;
+    }
+    previewImage.src = candidates[currentIndex];
+  };
+  previewImage.src = candidates[currentIndex];
+}
+
+function getImageSources_(value) {
+  const clean = String(value || "").trim();
+  if (!clean) {
+    return [];
+  }
+
+  const fileId = extractDriveFileId_(clean);
+  const candidates = [clean];
+
+  if (fileId) {
+    candidates.push(`https://drive.google.com/thumbnail?id=${fileId}&sz=w1200`);
+    candidates.push(`https://drive.google.com/uc?export=download&id=${fileId}`);
+    candidates.push(`https://lh3.googleusercontent.com/d/${fileId}`);
+  }
+
+  return [...new Set(candidates)];
+}
+
+function extractDriveFileId_(url) {
+  const fromQuery = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (fromQuery && fromQuery[1]) {
+    return fromQuery[1];
+  }
+
+  const fromPath = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (fromPath && fromPath[1]) {
+    return fromPath[1];
+  }
+
+  return "";
 }
 
 function normalizeDeadlineValue_(value) {

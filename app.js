@@ -386,6 +386,7 @@ function normalizeJob(job) {
   normalized.province = String(job.province || job.region || "").trim();
   normalized.area = normalizeArea_(job.area);
   normalized.deadline = normalizeDeadlineValue_(job.deadline);
+  normalized.imageData = String(job.imageData || job.imageUrl || "").trim();
   return normalized;
 }
 
