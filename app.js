@@ -27,12 +27,9 @@ const ECUADOR_PROVINCES = [
   "Zamora Chinchipe"
 ];
 const AREA_OPTIONS = [
-  "Ventas",
   "Administracion",
   "Logistica",
-  "Tienda",
-  "Tecnologia",
-  "Recursos Humanos"
+  "Tienda"
 ];
 
 const seedJobs = [
@@ -106,7 +103,7 @@ init();
 async function init() {
   jobs = await loadJobs();
   populateSelect(provinceFilter, mergeValues(ECUADOR_PROVINCES, getUniqueValues("province")));
-  populateSelect(areaFilter, mergeValues(AREA_OPTIONS, getUniqueValues("area")));
+  populateSelect(areaFilter, AREA_OPTIONS);
 
   provinceFilter.addEventListener("change", render);
   areaFilter.addEventListener("change", render);
@@ -116,7 +113,7 @@ async function init() {
     if (!API_URL && event.key === STORAGE_KEY) {
       jobs = loadLocalJobs();
       populateSelect(provinceFilter, mergeValues(ECUADOR_PROVINCES, getUniqueValues("province")));
-      populateSelect(areaFilter, mergeValues(AREA_OPTIONS, getUniqueValues("area")));
+      populateSelect(areaFilter, AREA_OPTIONS);
       render();
     }
   });
@@ -398,31 +395,19 @@ function normalizeArea_(value) {
   }
 
   const lower = clean.toLowerCase();
-  if (lower === "finanzas" || lower === "tiendas" || lower === "tienda") {
+  if (lower === "finanzas" || lower === "tiendas" || lower === "tienda" || lower === "ventas") {
     return "Tienda";
-  }
-
-  if (lower === "administracion") {
-    return "Administracion";
   }
 
   if (lower === "logistica") {
     return "Logistica";
   }
 
-  if (lower === "ventas") {
-    return "Ventas";
+  if (lower === "administracion" || lower === "tecnologia" || lower === "recursos humanos") {
+    return "Administracion";
   }
 
-  if (lower === "tecnologia") {
-    return "Tecnologia";
-  }
-
-  if (lower === "recursos humanos") {
-    return "Recursos Humanos";
-  }
-
-  return clean;
+  return "Administracion";
 }
 
 function mergeValues(first, second) {
