@@ -427,6 +427,7 @@ function formatDate(value) {
   const date = new Date(Date.UTC(year, month - 1, day));
 
   return date.toLocaleDateString("es-EC", {
+    timeZone: "UTC",
     day: "2-digit",
     month: "short",
     year: "numeric"
